@@ -9,7 +9,7 @@ RUN mvn -B -ntp -pl server -am dependency:go-offline
 COPY server/src ./server/src
 RUN mvn -B -ntp -pl server -am clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:22-jre-jammy
 WORKDIR /app
 RUN groupadd --system --gid 10001 workbridge \
     && useradd --system --uid 10001 --gid workbridge --no-create-home --shell /usr/sbin/nologin workbridge
