@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.organization.MenuMapper">
+
+    <resultMap id="menuRecordMap" type="com.workbridge.server.domain.organization.MenuRecord">
+        <id property="menuId" column="menu_id"/>
+        <result property="parentMenuId" column="parent_menu_id"/>
+        <result property="menuCode" column="menu_code"/>
+        <result property="menuName" column="menu_name"/>
+        <result property="menuPath" column="menu_path"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="active" column="active"/>
+    </resultMap>
+
+    <resultMap id="permissionRecordMap" type="com.workbridge.server.domain.organization.RoleMenuPermissionRecord">
+        <id property="menuId" column="menu_id"/>
+        <result property="parentMenuId" column="parent_menu_id"/>
+        <result property="menuCode" column="menu_code"/>
+        <result property="menuName" column="menu_name"/>
+        <result property="menuPath" column="menu_path"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="canRead" column="can_read"/>
+        <result property="canWrite" column="can_write"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="menuRecordMap">
+        SELECT menu_id, parent_menu_id, menu_code, menu_name, menu_path, sort_order, active
+        FROM menu
+        ORDER BY sort_order, menu_id
+    </select>
+
+    <select id="selectPermissionsByRoleId" resultMap="permissionRecordMap">
+        SELECT m.menu_id,
+               m.parent_menu_id,
+               m.menu_code,
+               m.menu_name,
+               m.menu_path,
+               m.sort_order,
+               CASE WHEN rm.role_id IS NULL THEN FALSE ELSE rm.can_read END AS can_read,
+               CASE WHEN rm.role_id IS NULL THEN FALSE ELSE rm.can_write END AS can_write
+        FROM menu m
+        LEFT JOIN role_menu rm
+          ON rm.menu_id = m.menu_id
+         AND rm.role_id = #{roleId}
+        WHERE m.active = TRUE
+        ORDER BY m.sort_order, m.menu_id
+    </select>
+
+    <select id="selectReadableMenusByEmployeeId" resultMap="permissionRecordMap">
+        SELECT m.menu_id,
+               m.parent_menu_id,
+               m.menu_code,
+               m.menu_name,
+               m.menu_path,
+               m.sort_order,
+               TRUE AS can_read,
+               CASE WHEN MAX(CASE WHEN rm.can_write = TRUE THEN 1 ELSE 0 END) &gt; 0
+                    THEN TRUE ELSE FALSE END AS can_write
+        FROM employee_role er
+        JOIN `role` r
+          ON r.role_id = er.role_id
+         AND r.active = TRUE
+        JOIN role_menu rm
+          ON rm.role_id = er.role_id
+         AND rm.can_read = TRUE
+        JOIN menu m
+          ON m.menu_id = rm.menu_id
+         AND m.active = TRUE
+        WHERE er.employee_id = #{employeeId}
+        GROUP BY m.menu_id, m.parent_menu_id, m.menu_code, m.menu_name, m.menu_path, m.sort_order
+        ORDER BY m.sort_order, m.menu_id
+    </select>
+
+    <select id="countEmployeePermission" resultType="int">
+        SELECT COUNT(*)
+        FROM employee e
+        JOIN employee_role er ON er.employee_id = e.employee_id
+        JOIN `role` r ON r.role_id = er.role_id AND r.active = TRUE
+        JOIN role_menu rm ON rm.role_id = er.role_id
+        JOIN menu m ON m.menu_id = rm.menu_id AND m.active = TRUE
+        WHERE e.employee_id = #{employeeId}
+          AND e.active = TRUE
+          AND m.menu_code = #{menuCode}
+          AND (
+              (#{writePermission} = TRUE AND rm.can_write = TRUE)
+              OR (#{writePermission} = FALSE AND rm.can_read = TRUE)
+          )
+    </select>
+
+    <delete id="deleteRoleMenus">
+        DELETE FROM role_menu WHERE role_id = #{roleId}
+    </delete>
+
+    <insert id="insertRoleMenus">
+        INSERT INTO role_menu (role_id, menu_id, can_read, can_write, created_by, created_at)
+        VALUES
+        <foreach collection="grants" item="grant" separator=",">
+            (#{roleId}, #{grant.menuId}, #{grant.canRead}, #{grant.canWrite}, #{actorId}, CURRENT_TIMESTAMP)
+        </foreach>
+    </insert>
+</mapper>

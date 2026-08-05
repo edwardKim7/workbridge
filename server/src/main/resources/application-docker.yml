@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 10

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.sales.SalesDashboardMapper">
+
+    <resultMap id="salesDashboardSummaryMap" type="com.workbridge.server.domain.sales.SalesDashboardSummary">
+        <result property="totalCustomers" column="total_customers"/>
+        <result property="activeCustomers" column="active_customers"/>
+        <result property="prospectCustomers" column="prospect_customers"/>
+        <result property="openOpportunities" column="open_opportunities"/>
+        <result property="wonOpportunities" column="won_opportunities"/>
+        <result property="lostOpportunities" column="lost_opportunities"/>
+        <result property="closingThisMonth" column="closing_this_month"/>
+        <result property="openPipelineAmount" column="open_pipeline_amount"/>
+        <result property="weightedPipelineAmount" column="weighted_pipeline_amount"/>
+    </resultMap>
+
+    <resultMap id="opportunityStageCountMap" type="com.workbridge.server.domain.sales.OpportunityStageCount">
+        <result property="stage" column="stage"/>
+        <result property="count" column="stage_count"/>
+    </resultMap>
+
+    <select id="selectSummary" resultMap="salesDashboardSummaryMap">
+        SELECT
+            (
+                SELECT COUNT(*) FROM customer c
+                WHERE 1 = 1
+                <if test="ownerEmployeeId != null">
+                    AND c.assigned_sales_id = #{ownerEmployeeId}
+                </if>
+            ) AS total_customers,
+            (
+                SELECT COUNT(*) FROM customer c
+                WHERE c.active = TRUE
+                  AND c.status = 'ACTIVE'
+                  <if test="ownerEmployeeId != null">
+                    AND c.assigned_sales_id = #{ownerEmployeeId}
+                </if>
+            ) AS active_customers,
+            (
+                SELECT COUNT(*) FROM customer c
+                WHERE c.active = TRUE
+                  AND c.status = 'PROSPECT'
+                  <if test="ownerEmployeeId != null">
+                    AND c.assigned_sales_id = #{ownerEmployeeId}
+                </if>
+            ) AS prospect_customers,
+            (
+                SELECT COUNT(*) FROM sales_opportunity o
+                WHERE o.status = 'OPEN'
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS open_opportunities,
+            (
+                SELECT COUNT(*) FROM sales_opportunity o
+                WHERE o.stage = 'WON'
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS won_opportunities,
+            (
+                SELECT COUNT(*) FROM sales_opportunity o
+                WHERE o.stage = 'LOST'
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS lost_opportunities,
+            (
+                SELECT COUNT(*) FROM sales_opportunity o
+                WHERE o.status = 'OPEN'
+                  AND o.expected_close_date &gt;= #{monthStart}
+                  AND o.expected_close_date &lt; #{nextMonthStart}
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS closing_this_month,
+            (
+                SELECT COALESCE(SUM(o.expected_revenue), 0) FROM sales_opportunity o
+                WHERE o.status = 'OPEN'
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS open_pipeline_amount,
+            (
+                SELECT COALESCE(SUM(o.expected_revenue * o.probability / 100), 0)
+                FROM sales_opportunity o
+                WHERE o.status = 'OPEN'
+                  <if test="ownerEmployeeId != null">
+                    AND o.owner_employee_id = #{ownerEmployeeId}
+                </if>
+            ) AS weighted_pipeline_amount
+    </select>
+
+    <select id="selectStageCounts" resultMap="opportunityStageCountMap">
+        SELECT o.stage, COUNT(*) AS stage_count
+        FROM sales_opportunity o
+        <where>
+            <if test="ownerEmployeeId != null">
+                AND o.owner_employee_id = #{ownerEmployeeId}
+            </if>
+        </where>
+        GROUP BY o.stage
+        ORDER BY CASE o.stage
+            WHEN 'LEAD' THEN 1
+            WHEN 'QUALIFIED' THEN 2
+            WHEN 'PROPOSAL' THEN 3
+            WHEN 'NEGOTIATION' THEN 4
+            WHEN 'WON' THEN 5
+            WHEN 'LOST' THEN 6
+            ELSE 99
+        END
+    </select>
+</mapper>

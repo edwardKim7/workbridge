@@ -1,0 +1,5 @@
+<%@ page pageEncoding="UTF-8" %>
+<footer class="footer">
+    <span>WorkBridge <c:out value="${appVersion}" default="0.3.0-SNAPSHOT"/></span>
+    <span>Java 17 · Spring Security · JSP · MyBatis · MySQL</span>
+</footer>

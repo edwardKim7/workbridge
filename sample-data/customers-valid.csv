@@ -1,0 +1,3 @@
+business_registration_no,customer_name,representative_name,contact_name,contact_email,contact_phone,established_date,assigned_sales_employee_no
+1234567890,가상고객 주식회사,김대표,이담당,contact1@workbridge.example,02-0000-0001,2020-03-10,WB-1001
+2345678901,샘플테크,박대표,최담당,contact2@workbridge.example,02-0000-0002,2021-11-01,WB-1001

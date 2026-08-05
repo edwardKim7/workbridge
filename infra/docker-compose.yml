@@ -1,0 +1,118 @@
+name: workbridge
+
+# 로컬 개발용 구성입니다. 기본값은 웹 서버도 127.0.0.1에만 공개합니다.
+# 외부 공개가 필요하면 README의 배포 전 점검 항목을 먼저 적용하세요.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: workbridge-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    expose:
+      - "3306"
+    volumes:
+      - workbridge_mysql_data:/var/lib/mysql
+      - ./mysql/conf.d/workbridge.cnf:/etc/mysql/conf.d/workbridge.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", 'MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}" mysqladmin ping -h 127.0.0.1 -u root --silent']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - workbridge-network
+
+  mock-erp:
+    build:
+      context: ..
+      dockerfile: mock-erp/Dockerfile
+    container_name: workbridge-mock-erp
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      MOCK_ERP_PORT: 8081
+      TZ: Asia/Seoul
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD", "/app/docker-healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    networks:
+      - workbridge-network
+
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: workbridge-server
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 384
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-14d}
+      LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
+      LOGIN_LOCK_DURATION: ${LOGIN_LOCK_DURATION:-15m}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      MOCK_ERP_BASE_URL: http://mock-erp:8081
+      ERP_CONNECT_TIMEOUT: ${ERP_CONNECT_TIMEOUT:-2s}
+      ERP_READ_TIMEOUT: ${ERP_READ_TIMEOUT:-3s}
+      ERP_MAX_ATTEMPTS: ${ERP_MAX_ATTEMPTS:-2}
+      ERP_RETRY_BACKOFF: ${ERP_RETRY_BACKOFF:-250ms}
+      TZ: Asia/Seoul
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${SERVER_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mock-erp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/docker-healthcheck.sh"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 50s
+    networks:
+      - workbridge-network
+
+volumes:
+  workbridge_mysql_data:
+
+networks:
+  workbridge-network:
+    driver: bridge

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.organization.DepartmentMapper">
+
+    <resultMap id="departmentRecordMap" type="com.workbridge.server.domain.organization.DepartmentRecord">
+        <id property="departmentId" column="department_id"/>
+        <result property="departmentCode" column="department_code"/>
+        <result property="departmentName" column="department_name"/>
+        <result property="parentDepartmentId" column="parent_department_id"/>
+        <result property="parentDepartmentName" column="parent_department_name"/>
+        <result property="active" column="active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <sql id="departmentColumns">
+        d.department_id,
+        d.department_code,
+        d.department_name,
+        d.parent_department_id,
+        p.department_name AS parent_department_name,
+        d.active,
+        d.created_at,
+        d.updated_at,
+        d.version
+    </sql>
+
+    <select id="selectPage" resultMap="departmentRecordMap">
+        SELECT <include refid="departmentColumns"/>
+        FROM department d
+        LEFT JOIN department p ON p.department_id = d.parent_department_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    LOWER(d.department_code) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(d.department_name) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                )
+            </if>
+            <if test="active != null">
+                AND d.active = #{active}
+            </if>
+        </where>
+        ORDER BY d.department_code ASC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM department d
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    LOWER(d.department_code) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(d.department_name) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                )
+            </if>
+            <if test="active != null">
+                AND d.active = #{active}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectById" resultMap="departmentRecordMap">
+        SELECT <include refid="departmentColumns"/>
+        FROM department d
+        LEFT JOIN department p ON p.department_id = d.parent_department_id
+        WHERE d.department_id = #{departmentId}
+    </select>
+
+    <select id="selectAll" resultMap="departmentRecordMap">
+        SELECT <include refid="departmentColumns"/>
+        FROM department d
+        LEFT JOIN department p ON p.department_id = d.parent_department_id
+        ORDER BY d.department_code ASC
+    </select>
+
+    <select id="countByCode" resultType="int">
+        SELECT COUNT(*) FROM department WHERE department_code = #{departmentCode}
+    </select>
+
+    <select id="countActiveEmployees" resultType="int">
+        SELECT COUNT(*) FROM employee WHERE department_id = #{departmentId} AND active = TRUE
+    </select>
+
+    <select id="countActiveChildren" resultType="int">
+        SELECT COUNT(*) FROM department WHERE parent_department_id = #{departmentId} AND active = TRUE
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="department.departmentId">
+        INSERT INTO department (
+            department_code, department_name, parent_department_id, active,
+            created_by, created_at, updated_by, updated_at, version
+        ) VALUES (
+            #{department.departmentCode}, #{department.departmentName}, #{department.parentDepartmentId},
+            #{department.active}, #{actorId}, CURRENT_TIMESTAMP, #{actorId}, CURRENT_TIMESTAMP, 0
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE department
+        SET department_name = #{departmentName},
+            parent_department_id = #{parentDepartmentId},
+            active = #{active},
+            updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE department_id = #{departmentId}
+          AND version = #{version}
+    </update>
+</mapper>

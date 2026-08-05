@@ -1,0 +1,39 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pom.xml"
+      - "server/**"
+      - "mock-erp/**"
+      - ".github/workflows/server-ci.yml"
+  pull_request:
+    paths:
+      - "pom.xml"
+      - "server/**"
+      - "mock-erp/**"
+      - ".github/workflows/server-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Run server and Mock ERP tests
+        run: mvn -B -ntp clean test
+      - name: Verify packaging
+        run: mvn -B -ntp package -DskipTests

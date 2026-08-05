@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.organization.EmployeeMapper">
+
+    <resultMap id="employeeCredentialMap" type="com.workbridge.server.domain.organization.EmployeeCredentialRecord">
+        <id property="employeeId" column="employee_id"/>
+        <result property="employeeNo" column="employee_no"/>
+        <result property="loginId" column="login_id"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="employeeName" column="employee_name"/>
+        <result property="email" column="email"/>
+        <result property="departmentId" column="department_id"/>
+        <result property="departmentName" column="department_name"/>
+        <result property="active" column="active"/>
+        <result property="loginFailCount" column="login_fail_count"/>
+        <result property="lockedUntil" column="locked_until"/>
+        <result property="lastLoginAt" column="last_login_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="employeeRecordMap" type="com.workbridge.server.domain.organization.EmployeeRecord">
+        <id property="employeeId" column="employee_id"/>
+        <result property="employeeNo" column="employee_no"/>
+        <result property="loginId" column="login_id"/>
+        <result property="employeeName" column="employee_name"/>
+        <result property="email" column="email"/>
+        <result property="departmentId" column="department_id"/>
+        <result property="departmentName" column="department_name"/>
+        <result property="active" column="active"/>
+        <result property="loginFailCount" column="login_fail_count"/>
+        <result property="lockedUntil" column="locked_until"/>
+        <result property="lastLoginAt" column="last_login_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="employeeRoleMap" type="com.workbridge.server.domain.organization.EmployeeRoleRecord">
+        <result property="employeeId" column="employee_id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+    </resultMap>
+
+    <select id="selectCredentialByLoginId" resultMap="employeeCredentialMap">
+        SELECT e.employee_id,
+               e.employee_no,
+               e.login_id,
+               e.password_hash,
+               e.employee_name,
+               e.email,
+               e.department_id,
+               d.department_name,
+               e.active,
+               e.login_fail_count,
+               e.locked_until,
+               e.last_login_at,
+               e.version
+        FROM employee e
+        JOIN department d ON d.department_id = e.department_id
+        WHERE e.login_id = #{loginId}
+    </select>
+
+    <select id="selectRoleCodesByEmployeeId" resultType="string">
+        SELECT r.role_code
+        FROM employee_role er
+        JOIN `role` r ON r.role_id = er.role_id
+        WHERE er.employee_id = #{employeeId}
+          AND r.active = TRUE
+        ORDER BY r.role_code
+    </select>
+
+    <select id="selectById" resultMap="employeeRecordMap">
+        SELECT e.employee_id,
+               e.employee_no,
+               e.login_id,
+               e.employee_name,
+               e.email,
+               e.department_id,
+               d.department_name,
+               e.active,
+               e.login_fail_count,
+               e.locked_until,
+               e.last_login_at,
+               e.created_at,
+               e.updated_at,
+               e.version
+        FROM employee e
+        JOIN department d ON d.department_id = e.department_id
+        WHERE e.employee_id = #{employeeId}
+    </select>
+
+    <select id="selectPage" resultMap="employeeRecordMap">
+        SELECT e.employee_id,
+               e.employee_no,
+               e.login_id,
+               e.employee_name,
+               e.email,
+               e.department_id,
+               d.department_name,
+               e.active,
+               e.login_fail_count,
+               e.locked_until,
+               e.last_login_at,
+               e.created_at,
+               e.updated_at,
+               e.version
+        FROM employee e
+        JOIN department d ON d.department_id = e.department_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    LOWER(e.employee_no) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.login_id) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.employee_name) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.email) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                )
+            </if>
+            <if test="departmentId != null">
+                AND e.department_id = #{departmentId}
+            </if>
+            <if test="active != null">
+                AND e.active = #{active}
+            </if>
+        </where>
+        ORDER BY e.employee_id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM employee e
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    LOWER(e.employee_no) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.login_id) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.employee_name) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                    OR LOWER(e.email) LIKE CONCAT('%', LOWER(#{keyword}), '%')
+                )
+            </if>
+            <if test="departmentId != null">
+                AND e.department_id = #{departmentId}
+            </if>
+            <if test="active != null">
+                AND e.active = #{active}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectRolesByEmployeeIds" resultMap="employeeRoleMap">
+        SELECT er.employee_id, r.role_id, r.role_code, r.role_name
+        FROM employee_role er
+        JOIN `role` r ON r.role_id = er.role_id
+        WHERE er.employee_id IN
+        <foreach collection="employeeIds" item="employeeId" open="(" separator="," close=")">
+            #{employeeId}
+        </foreach>
+        ORDER BY er.employee_id, r.role_code
+    </select>
+
+    <select id="selectRolesByEmployeeId" resultMap="employeeRoleMap">
+        SELECT er.employee_id, r.role_id, r.role_code, r.role_name
+        FROM employee_role er
+        JOIN `role` r ON r.role_id = er.role_id
+        WHERE er.employee_id = #{employeeId}
+        ORDER BY r.role_code
+    </select>
+
+    <select id="countByEmployeeNo" resultType="int">
+        SELECT COUNT(*) FROM employee WHERE employee_no = #{employeeNo}
+    </select>
+
+    <select id="countByLoginId" resultType="int">
+        SELECT COUNT(*) FROM employee WHERE login_id = #{loginId}
+    </select>
+
+    <select id="countByEmail" resultType="int">
+        SELECT COUNT(*) FROM employee WHERE email = #{email}
+    </select>
+
+    <select id="countByEmailExcludingEmployee" resultType="int">
+        SELECT COUNT(*) FROM employee WHERE email = #{email} AND employee_id != #{employeeId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="employee.employeeId">
+        INSERT INTO employee (
+            employee_no, login_id, password_hash, employee_name, email, department_id,
+            active, login_fail_count, locked_until, last_login_at,
+            created_by, created_at, updated_by, updated_at, version
+        ) VALUES (
+            #{employee.employeeNo}, #{employee.loginId}, #{employee.passwordHash},
+            #{employee.employeeName}, #{employee.email}, #{employee.departmentId},
+            #{employee.active}, 0, NULL, NULL,
+            #{actorId}, CURRENT_TIMESTAMP, #{actorId}, CURRENT_TIMESTAMP, 0
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE employee
+        SET employee_name = #{employeeName},
+            email = #{email},
+            department_id = #{departmentId},
+            updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE employee_id = #{employeeId}
+          AND version = #{version}
+    </update>
+
+    <update id="updateActive">
+        UPDATE employee
+        SET active = #{active},
+            updated_by = #{command.actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE employee_id = #{command.employeeId}
+          AND version = #{command.version}
+    </update>
+
+    <update id="unlock">
+        UPDATE employee
+        SET login_fail_count = 0,
+            locked_until = NULL,
+            updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE employee_id = #{employeeId}
+          AND version = #{version}
+    </update>
+
+    <update id="touchVersion">
+        UPDATE employee
+        SET updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE employee_id = #{employeeId}
+          AND version = #{version}
+    </update>
+
+    <delete id="deleteRoles">
+        DELETE FROM employee_role WHERE employee_id = #{employeeId}
+    </delete>
+
+    <insert id="insertRoles">
+        INSERT INTO employee_role (employee_id, role_id, assigned_by, assigned_at)
+        VALUES
+        <foreach collection="roleIds" item="roleId" separator=",">
+            (#{employeeId}, #{roleId}, #{actorId}, CURRENT_TIMESTAMP)
+        </foreach>
+    </insert>
+
+    <update id="clearExpiredLock">
+        UPDATE employee
+        SET login_fail_count = 0,
+            locked_until = NULL,
+            updated_at = #{now}
+        WHERE employee_id = #{employeeId}
+          AND locked_until IS NOT NULL
+          AND locked_until &lt;= #{now}
+    </update>
+
+    <update id="recordLoginFailure">
+        UPDATE employee
+        SET login_fail_count = login_fail_count + 1,
+            locked_until = CASE
+                WHEN login_fail_count + 1 &gt;= #{maxFailures} THEN #{lockedUntil}
+                ELSE locked_until
+            END,
+            updated_at = #{now}
+        WHERE employee_id = #{employeeId}
+    </update>
+
+    <update id="recordLoginSuccess">
+        UPDATE employee
+        SET login_fail_count = 0,
+            locked_until = NULL,
+            last_login_at = #{now},
+            updated_at = #{now}
+        WHERE employee_id = #{employeeId}
+    </update>
+
+    <update id="revokeRefreshTokens">
+        UPDATE refresh_token
+        SET revoked_at = #{now}
+        WHERE employee_id = #{employeeId}
+          AND revoked_at IS NULL
+    </update>
+
+    <select id="countActiveEmployeesByRoleCode" resultType="long">
+        SELECT COUNT(DISTINCT e.employee_id)
+        FROM employee e
+        JOIN employee_role er ON er.employee_id = e.employee_id
+        JOIN `role` r ON r.role_id = er.role_id
+        WHERE e.active = TRUE
+          AND r.active = TRUE
+          AND r.role_code = #{roleCode}
+    </select>
+
+    <select id="selectOrganizationDashboardStats" resultType="com.workbridge.server.domain.organization.OrganizationDashboardStats">
+        SELECT
+            (SELECT COUNT(*) FROM department) AS total_departments,
+            (SELECT COUNT(*) FROM department WHERE active = TRUE) AS active_departments,
+            (SELECT COUNT(*) FROM employee) AS total_employees,
+            (SELECT COUNT(*) FROM employee WHERE active = TRUE) AS active_employees,
+            (SELECT COUNT(*) FROM employee WHERE locked_until IS NOT NULL AND locked_until &gt; #{now}) AS locked_employees,
+            (SELECT COUNT(*) FROM `role` WHERE active = TRUE) AS active_roles
+    </select>
+</mapper>

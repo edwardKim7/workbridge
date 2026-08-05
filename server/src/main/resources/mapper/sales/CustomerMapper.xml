@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.sales.CustomerMapper">
+
+    <resultMap id="customerRecordMap" type="com.workbridge.server.domain.sales.CustomerRecord">
+        <id property="customerId" column="customer_id"/>
+        <result property="businessRegistrationNo" column="business_registration_no"/>
+        <result property="customerName" column="customer_name"/>
+        <result property="representativeName" column="representative_name"/>
+        <result property="contactName" column="contact_name"/>
+        <result property="contactPhone" column="contact_phone"/>
+        <result property="contactEmail" column="contact_email"/>
+        <result property="establishedDate" column="established_date"/>
+        <result property="assignedSalesId" column="assigned_sales_id"/>
+        <result property="assignedSalesEmployeeNo" column="assigned_sales_employee_no"/>
+        <result property="assignedSalesName" column="assigned_sales_name"/>
+        <result property="status" column="status"/>
+        <result property="active" column="active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <sql id="customerColumns">
+        c.customer_id,
+        c.business_registration_no,
+        c.customer_name,
+        c.representative_name,
+        c.contact_name,
+        c.contact_phone,
+        c.contact_email,
+        c.established_date,
+        c.assigned_sales_id,
+        e.employee_no AS assigned_sales_employee_no,
+        e.employee_name AS assigned_sales_name,
+        c.status,
+        c.active,
+        c.created_at,
+        c.updated_at,
+        c.version
+    </sql>
+
+    <sql id="searchConditions">
+        <where>
+            <if test="customerName != null and customerName != ''">
+                AND c.customer_name LIKE CONCAT(#{customerName}, '%')
+            </if>
+            <if test="businessRegistrationNo != null and businessRegistrationNo != ''">
+                AND c.business_registration_no LIKE CONCAT(#{businessRegistrationNo}, '%')
+            </if>
+            <if test="contactName != null and contactName != ''">
+                AND c.contact_name LIKE CONCAT(#{contactName}, '%')
+            </if>
+            <if test="assignedSalesId != null">
+                AND c.assigned_sales_id = #{assignedSalesId}
+            </if>
+            <if test="status != null">
+                AND c.status = #{status}
+            </if>
+            <if test="active != null">
+                AND c.active = #{active}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultMap="customerRecordMap">
+        SELECT <include refid="customerColumns"/>
+        FROM customer c
+        INNER JOIN employee e ON e.employee_id = c.assigned_sales_id
+        <include refid="searchConditions"/>
+        ORDER BY c.updated_at DESC, c.customer_id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM customer c
+        <include refid="searchConditions"/>
+    </select>
+
+    <select id="selectById" resultMap="customerRecordMap">
+        SELECT <include refid="customerColumns"/>
+        FROM customer c
+        INNER JOIN employee e ON e.employee_id = c.assigned_sales_id
+        WHERE c.customer_id = #{customerId}
+    </select>
+
+    <select id="selectOptions" resultMap="customerRecordMap">
+        SELECT <include refid="customerColumns"/>
+        FROM customer c
+        INNER JOIN employee e ON e.employee_id = c.assigned_sales_id
+        WHERE c.active = TRUE
+          AND c.status != 'INACTIVE'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                c.customer_name LIKE CONCAT(#{keyword}, '%')
+                OR c.business_registration_no LIKE CONCAT(#{keyword}, '%')
+            )
+        </if>
+        ORDER BY c.customer_name ASC, c.customer_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countByBusinessRegistrationNo" resultType="int">
+        SELECT COUNT(*) FROM customer WHERE business_registration_no = #{businessRegistrationNo}
+    </select>
+
+    <select id="countByBusinessRegistrationNoExcludingCustomer" resultType="int">
+        SELECT COUNT(*)
+        FROM customer
+        WHERE business_registration_no = #{businessRegistrationNo}
+          AND customer_id != #{customerId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="customer.customerId">
+        INSERT INTO customer (
+            business_registration_no, customer_name, representative_name, contact_name,
+            contact_phone, contact_email, established_date, assigned_sales_id,
+            status, active, created_by, created_at, updated_by, updated_at, version
+        ) VALUES (
+            #{customer.businessRegistrationNo}, #{customer.customerName}, #{customer.representativeName},
+            #{customer.contactName}, #{customer.contactPhone}, #{customer.contactEmail},
+            #{customer.establishedDate}, #{customer.assignedSalesId}, #{customer.status},
+            #{customer.active}, #{actorId}, CURRENT_TIMESTAMP, #{actorId}, CURRENT_TIMESTAMP, 0
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE customer
+        SET business_registration_no = #{businessRegistrationNo},
+            customer_name = #{customerName},
+            representative_name = #{representativeName},
+            contact_name = #{contactName},
+            contact_phone = #{contactPhone},
+            contact_email = #{contactEmail},
+            established_date = #{establishedDate},
+            assigned_sales_id = #{assignedSalesId},
+            status = #{status},
+            active = #{active},
+            updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE customer_id = #{customerId}
+          AND version = #{version}
+    </update>
+</mapper>

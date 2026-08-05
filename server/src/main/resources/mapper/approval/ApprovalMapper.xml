@@ -1,0 +1,69 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.approval.ApprovalMapper">
+  <resultMap id="approvalMap" type="com.workbridge.server.domain.approval.ApprovalRecord">
+    <id property="approvalId" column="approval_id"/>
+    <result property="approvalNo" column="approval_no"/>
+    <result property="approvalType" column="approval_type"/>
+    <result property="businessType" column="business_type"/>
+    <result property="businessId" column="business_id"/>
+    <result property="businessName" column="business_name"/>
+    <result property="requesterId" column="requester_id"/>
+    <result property="requesterName" column="requester_name"/>
+    <result property="approverId" column="approver_id"/>
+    <result property="approverName" column="approver_name"/>
+    <result property="title" column="title"/>
+    <result property="requestPayload" column="request_payload"/>
+    <result property="status" column="status"/>
+    <result property="requestedAt" column="requested_at"/>
+    <result property="processedAt" column="processed_at"/>
+    <result property="canceledAt" column="canceled_at"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+    <result property="version" column="version"/>
+  </resultMap>
+  <resultMap id="historyMap" type="com.workbridge.server.domain.approval.ApprovalHistoryRecord">
+    <id property="approvalHistoryId" column="approval_history_id"/>
+    <result property="approvalId" column="approval_id"/>
+    <result property="fromStatus" column="from_status"/>
+    <result property="toStatus" column="to_status"/>
+    <result property="action" column="action"/>
+    <result property="actorId" column="actor_id"/>
+    <result property="actorName" column="actor_name"/>
+    <result property="opinion" column="opinion"/>
+    <result property="traceId" column="trace_id"/>
+    <result property="actedAt" column="acted_at"/>
+  </resultMap>
+  <sql id="approvalSelect">
+    SELECT a.approval_id,a.approval_no,a.approval_type,a.business_type,a.business_id,
+           COALESCE(o.opportunity_name, CONCAT(a.business_type,' #',a.business_id)) business_name,
+           a.requester_id,req.employee_name requester_name,a.approver_id,apv.employee_name approver_name,
+           a.title,a.request_payload,a.status,a.requested_at,a.processed_at,a.canceled_at,a.created_at,a.updated_at,a.version
+    FROM approval_request a
+    JOIN employee req ON req.employee_id=a.requester_id
+    JOIN employee apv ON apv.employee_id=a.approver_id
+    LEFT JOIN sales_opportunity o ON a.business_type='OPPORTUNITY' AND o.opportunity_id=a.business_id
+  </sql>
+  <sql id="filters">
+    <where>
+      <if test="scope == 'REQUESTER'">AND a.requester_id=#{actorId}</if>
+      <if test="scope == 'APPROVER'">AND a.approver_id=#{actorId}</if>
+      <if test="scope == 'BOTH'">AND (a.requester_id=#{actorId} OR a.approver_id=#{actorId})</if>
+      <if test="status != null">AND a.status=#{status}</if>
+      <if test="approvalType != null">AND a.approval_type=#{approvalType}</if>
+      <if test="keyword != null and keyword != ''">AND (LOWER(a.approval_no) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR LOWER(a.title) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR LOWER(req.employee_name) LIKE CONCAT('%',LOWER(#{keyword}),'%') OR LOWER(apv.employee_name) LIKE CONCAT('%',LOWER(#{keyword}),'%'))</if>
+    </where>
+  </sql>
+  <select id="selectPage" resultMap="approvalMap"><include refid="approvalSelect"/><include refid="filters"/> ORDER BY a.approval_id DESC LIMIT #{size} OFFSET #{offset}</select>
+  <select id="countPage" resultType="long">SELECT COUNT(*) FROM approval_request a JOIN employee req ON req.employee_id=a.requester_id JOIN employee apv ON apv.employee_id=a.approver_id <include refid="filters"/></select>
+  <select id="selectById" resultMap="approvalMap"><include refid="approvalSelect"/> WHERE a.approval_id=#{approvalId}</select>
+  <select id="selectHistories" resultMap="historyMap">SELECT h.*,e.employee_name actor_name FROM approval_history h JOIN employee e ON e.employee_id=h.actor_id WHERE h.approval_id=#{approvalId} ORDER BY h.approval_history_id</select>
+  <select id="selectActiveApprovers" resultType="com.workbridge.server.dto.approval.ApproverOptionResponse">SELECT DISTINCT e.employee_id,e.employee_no,e.employee_name,d.department_name FROM employee e JOIN department d ON d.department_id=e.department_id JOIN employee_role er ON er.employee_id=e.employee_id JOIN `role` r ON r.role_id=er.role_id WHERE e.active=TRUE AND r.active=TRUE AND r.role_code='APPROVER' ORDER BY e.employee_name</select>
+  <select id="countActiveApprover" resultType="int">SELECT COUNT(*) FROM employee e JOIN employee_role er ON er.employee_id=e.employee_id JOIN `role` r ON r.role_id=er.role_id WHERE e.employee_id=#{employeeId} AND e.active=TRUE AND r.active=TRUE AND r.role_code='APPROVER'</select>
+  <insert id="insert" useGeneratedKeys="true" keyProperty="approval.approvalId">INSERT INTO approval_request(approval_no,approval_type,business_type,business_id,requester_id,approver_id,title,request_payload,status,created_by,updated_by,version) VALUES(#{approval.approvalNo},#{approval.approvalType},#{approval.businessType},#{approval.businessId},#{approval.requesterId},#{approval.approverId},#{approval.title},#{approval.requestPayload},'DRAFT',#{actorId},#{actorId},0)</insert>
+  <update id="updateDraft">UPDATE approval_request SET approval_type=#{approvalType},business_id=#{businessId},approver_id=#{approverId},title=#{title},request_payload=#{requestPayload},updated_by=#{actorId},updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE approval_id=#{approvalId} AND requester_id=#{actorId} AND status='DRAFT' AND version=#{version}</update>
+  <update id="transitionDraft">UPDATE approval_request SET status=#{targetStatus},requested_at=CASE WHEN #{targetStatus}='REQUESTED' THEN #{now} ELSE requested_at END,canceled_at=CASE WHEN #{targetStatus}='CANCELED' THEN #{now} ELSE canceled_at END,updated_by=#{actorId},updated_at=#{now},version=version+1 WHERE approval_id=#{approvalId} AND requester_id=#{requesterId} AND status='DRAFT' AND version=#{version}</update>
+  <update id="processRequested">UPDATE approval_request SET status=#{targetStatus},processed_at=#{now},updated_by=#{actorId},updated_at=#{now},version=version+1 WHERE approval_id=#{approvalId} AND approver_id=#{approverId} AND status='REQUESTED' AND version=#{version}</update>
+  <insert id="insertHistory">INSERT INTO approval_history(approval_id,from_status,to_status,action,actor_id,opinion,trace_id,acted_at) VALUES(#{approvalId},#{fromStatus},#{toStatus},#{action},#{actorId},#{opinion},#{traceId},#{actedAt})</insert>
+  <select id="selectRecent" resultMap="approvalMap"><include refid="approvalSelect"/> ORDER BY COALESCE(a.processed_at,a.requested_at,a.created_at) DESC LIMIT #{limit}</select>
+</mapper>

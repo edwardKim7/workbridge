@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.operation.SystemErrorMapper">
+  <insert id="insert" useGeneratedKeys="true" keyProperty="record.systemErrorId">INSERT INTO system_error_log(trace_id,employee_id,request_method,request_path,http_status,error_code,exception_type,safe_message,log_reference,occurred_at)VALUES(#{record.traceId},#{record.employeeId},#{record.requestMethod},#{record.requestPath},#{record.httpStatus},#{record.errorCode},#{record.exceptionType},#{record.safeMessage},#{record.logReference},#{record.occurredAt})</insert>
+  <sql id="select">SELECT s.*,e.employee_name FROM system_error_log s LEFT JOIN employee e ON e.employee_id=s.employee_id</sql>
+  <sql id="filter">
+    <where>
+      <if test="traceId!=null and traceId!=''">AND s.trace_id=#{traceId}</if>
+      <if test="httpStatus!=null">AND s.http_status=#{httpStatus}</if>
+    </where>
+  </sql>
+  <select id="selectPage" resultType="com.workbridge.server.domain.operation.SystemErrorRecord"><include refid="select"/><include refid="filter"/>ORDER BY s.system_error_id DESC LIMIT #{size} OFFSET #{offset}</select>
+  <select id="countPage" resultType="long">SELECT COUNT(*) FROM system_error_log s <include refid="filter"/></select>
+  <select id="selectRecent" resultType="com.workbridge.server.domain.operation.SystemErrorRecord"><include refid="select"/>ORDER BY s.system_error_id DESC LIMIT #{limit}</select>
+</mapper>

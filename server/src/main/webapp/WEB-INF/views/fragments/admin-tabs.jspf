@@ -1,0 +1,6 @@
+<%@ page pageEncoding="UTF-8" %>
+<nav class="sub-tabs" aria-label="조직·권한 관리 탭">
+    <a class="sub-tab ${adminTab eq 'employees' ? 'active' : ''}" href="<c:url value='/web/admin/employees'/>">직원</a>
+    <a class="sub-tab ${adminTab eq 'departments' ? 'active' : ''}" href="<c:url value='/web/admin/departments'/>">부서</a>
+    <a class="sub-tab ${adminTab eq 'roles' ? 'active' : ''}" href="<c:url value='/web/admin/roles'/>">역할·메뉴 권한</a>
+</nav>

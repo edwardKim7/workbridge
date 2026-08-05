@@ -1,0 +1,4 @@
+business_registration_no,customer_name,representative_name,contact_name,contact_email,contact_phone,established_date,assigned_sales_employee_no
+1234567890,정상행,김대표,이담당,ok@workbridge.example,02-0000-0001,2020-03-10,WB-1001
+1234567890,파일내중복,박대표,최담당,bad-email,02-0000-0002,2020-99-99,WB-1001
+,필수값누락,,,,,,UNKNOWN-EMP

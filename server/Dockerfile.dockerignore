@@ -1,0 +1,11 @@
+.git
+.github
+docs
+infra
+mobile
+sample-data
+scripts
+**/target
+.idea
+.vscode
+*.log

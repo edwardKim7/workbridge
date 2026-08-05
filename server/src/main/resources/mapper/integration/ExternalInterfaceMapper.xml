@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.integration.ExternalInterfaceMapper">
+  <resultMap id="interfaceMap" type="com.workbridge.server.domain.integration.ExternalInterfaceRecord" autoMapping="true">
+    <id property="interfaceId" column="interface_id"/>
+  </resultMap>
+  <insert id="insert" useGeneratedKeys="true" keyProperty="record.interfaceId">INSERT INTO external_interface_log(interface_type,business_type,business_id,business_version,idempotency_key,trace_id,status,request_method,request_url,request_headers,request_body,request_truncated,created_by,created_at,updated_at,version) VALUES(#{record.interfaceType},#{record.businessType},#{record.businessId},#{record.businessVersion},#{record.idempotencyKey},#{record.traceId},#{record.status},#{record.requestMethod},#{record.requestUrl},#{record.requestHeaders},#{record.requestBody},#{record.requestTruncated},#{record.createdBy},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,0)</insert>
+  <select id="selectById" resultMap="interfaceMap">SELECT * FROM external_interface_log WHERE interface_id=#{id}</select>
+  <select id="selectByIdempotencyKey" resultMap="interfaceMap">SELECT * FROM external_interface_log WHERE idempotency_key=#{key}</select>
+  <select id="selectPage" resultMap="interfaceMap">SELECT * FROM external_interface_log <where><if test="status!=null">AND status=#{status}</if><if test="traceId!=null and traceId!=''">AND trace_id=#{traceId}</if></where> ORDER BY interface_id DESC LIMIT #{size} OFFSET #{offset}</select>
+  <select id="countPage" resultType="long">SELECT COUNT(*) FROM external_interface_log <where><if test="status!=null">AND status=#{status}</if><if test="traceId!=null and traceId!=''">AND trace_id=#{traceId}</if></where></select>
+  <update id="markProcessing">UPDATE external_interface_log SET status=#{status},trace_id=#{traceId},started_at=#{now},completed_at=NULL,response_status=NULL,response_body=NULL,error_code=NULL,error_message=NULL,updated_at=#{now},version=version+1 WHERE interface_id=#{id} AND status IN ('PENDING','TEMPORARY_FAILED','PERMANENT_FAILED','RETRYING')</update>
+  <update id="markResult">UPDATE external_interface_log SET status=#{status},response_status=#{responseStatus},response_body=#{responseBody},response_truncated=#{responseTruncated},error_code=#{errorCode},error_message=#{errorMessage},retry_count=#{retryCount},completed_at=#{now},updated_at=#{now},version=version+1 WHERE interface_id=#{id}</update>
+  <insert id="insertAttempt" useGeneratedKeys="true" keyProperty="record.attemptId">INSERT INTO external_interface_attempt(interface_id,attempt_no,status,response_status,response_body,error_code,error_message,trace_id,started_at,completed_at) VALUES(#{record.interfaceId},#{record.attemptNo},#{record.status},#{record.responseStatus},#{record.responseBody},#{record.errorCode},#{record.errorMessage},#{record.traceId},#{record.startedAt},#{record.completedAt})</insert>
+  <select id="selectAttempts" resultType="com.workbridge.server.domain.integration.ExternalInterfaceAttemptRecord">SELECT * FROM external_interface_attempt WHERE interface_id=#{id} ORDER BY attempt_no</select>
+  <select id="selectRecent" resultMap="interfaceMap">SELECT * FROM external_interface_log ORDER BY interface_id DESC LIMIT #{limit}</select>
+  <select id="countRetryWaiting" resultType="long">SELECT COUNT(*) FROM external_interface_log WHERE status IN ('TEMPORARY_FAILED','PERMANENT_FAILED')</select>
+</mapper>

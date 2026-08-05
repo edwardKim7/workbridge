@@ -1,0 +1,30 @@
+[CmdletBinding()]
+param(
+    [switch]$UseDocker
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+
+Push-Location $repoRoot
+try {
+    if (-not $UseDocker -and (Get-Command mvn -ErrorAction SilentlyContinue)) {
+        mvn -B -ntp -pl server -am clean test
+    }
+    elseif (Get-Command docker -ErrorAction SilentlyContinue) {
+        docker run --rm --mount "type=bind,source=$repoRoot,target=/workspace" `
+            --workdir /workspace `
+            maven:3.9.11-eclipse-temurin-17 `
+            mvn -B -ntp -pl server -am clean test
+    }
+    else {
+        throw 'Maven 또는 Docker Desktop 중 하나가 필요합니다.'
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw '서버 테스트가 실패했습니다.'
+    }
+}
+finally {
+    Pop-Location
+}

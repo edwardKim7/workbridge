@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workbridge.server.mapper.sales.SalesOpportunityMapper">
+
+    <resultMap id="opportunityRecordMap" type="com.workbridge.server.domain.sales.SalesOpportunityRecord">
+        <id property="opportunityId" column="opportunity_id"/>
+        <result property="opportunityNo" column="opportunity_no"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="customerName" column="customer_name"/>
+        <result property="businessRegistrationNo" column="business_registration_no"/>
+        <result property="customerAssignedSalesId" column="customer_assigned_sales_id"/>
+        <result property="customerStatus" column="customer_status"/>
+        <result property="customerActive" column="customer_active"/>
+        <result property="opportunityName" column="opportunity_name"/>
+        <result property="stage" column="stage"/>
+        <result property="expectedRevenue" column="expected_revenue"/>
+        <result property="expectedCloseDate" column="expected_close_date"/>
+        <result property="probability" column="probability"/>
+        <result property="ownerEmployeeId" column="owner_employee_id"/>
+        <result property="ownerEmployeeNo" column="owner_employee_no"/>
+        <result property="ownerEmployeeName" column="owner_employee_name"/>
+        <result property="status" column="status"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <sql id="opportunityColumns">
+        o.opportunity_id,
+        o.opportunity_no,
+        o.customer_id,
+        c.customer_name,
+        c.business_registration_no,
+        c.assigned_sales_id AS customer_assigned_sales_id,
+        c.status AS customer_status,
+        c.active AS customer_active,
+        o.opportunity_name,
+        o.stage,
+        o.expected_revenue,
+        o.expected_close_date,
+        o.probability,
+        o.owner_employee_id,
+        e.employee_no AS owner_employee_no,
+        e.employee_name AS owner_employee_name,
+        o.status,
+        o.description,
+        o.created_at,
+        o.updated_at,
+        o.version
+    </sql>
+
+    <sql id="searchConditions">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    o.opportunity_no LIKE CONCAT(#{keyword}, '%')
+                    OR o.opportunity_name LIKE CONCAT(#{keyword}, '%')
+                    OR c.customer_name LIKE CONCAT(#{keyword}, '%')
+                )
+            </if>
+            <if test="customerId != null">
+                AND o.customer_id = #{customerId}
+            </if>
+            <if test="stage != null">
+                AND o.stage = #{stage}
+            </if>
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            <if test="ownerEmployeeId != null">
+                AND o.owner_employee_id = #{ownerEmployeeId}
+            </if>
+            <if test="closeDateFrom != null">
+                AND o.expected_close_date &gt;= #{closeDateFrom}
+            </if>
+            <if test="closeDateTo != null">
+                AND o.expected_close_date &lt;= #{closeDateTo}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectPage" resultMap="opportunityRecordMap">
+        SELECT <include refid="opportunityColumns"/>
+        FROM sales_opportunity o
+        INNER JOIN customer c ON c.customer_id = o.customer_id
+        INNER JOIN employee e ON e.employee_id = o.owner_employee_id
+        <include refid="searchConditions"/>
+        ORDER BY
+            CASE WHEN o.status = 'OPEN' THEN 0 ELSE 1 END,
+            o.expected_close_date ASC,
+            o.updated_at DESC,
+            o.opportunity_id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM sales_opportunity o
+        INNER JOIN customer c ON c.customer_id = o.customer_id
+        <include refid="searchConditions"/>
+    </select>
+
+    <select id="selectById" resultMap="opportunityRecordMap">
+        SELECT <include refid="opportunityColumns"/>
+        FROM sales_opportunity o
+        INNER JOIN customer c ON c.customer_id = o.customer_id
+        INNER JOIN employee e ON e.employee_id = o.owner_employee_id
+        WHERE o.opportunity_id = #{opportunityId}
+    </select>
+
+    <select id="selectOptionsByCustomer" resultMap="opportunityRecordMap">
+        SELECT <include refid="opportunityColumns"/>
+        FROM sales_opportunity o
+        INNER JOIN customer c ON c.customer_id = o.customer_id
+        INNER JOIN employee e ON e.employee_id = o.owner_employee_id
+        WHERE o.customer_id = #{customerId}
+        ORDER BY o.status ASC, o.updated_at DESC, o.opportunity_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="opportunity.opportunityId">
+        INSERT INTO sales_opportunity (
+            opportunity_no, customer_id, opportunity_name, stage, expected_revenue,
+            expected_close_date, probability, owner_employee_id, status, description,
+            created_by, created_at, updated_by, updated_at, version
+        ) VALUES (
+            #{opportunity.opportunityNo}, #{opportunity.customerId}, #{opportunity.opportunityName},
+            #{opportunity.stage}, #{opportunity.expectedRevenue}, #{opportunity.expectedCloseDate},
+            #{opportunity.probability}, #{opportunity.ownerEmployeeId}, #{opportunity.status},
+            #{opportunity.description}, #{actorId}, CURRENT_TIMESTAMP, #{actorId}, CURRENT_TIMESTAMP, 0
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE sales_opportunity
+        SET opportunity_name = #{opportunityName},
+            stage = #{stage},
+            expected_revenue = #{expectedRevenue},
+            expected_close_date = #{expectedCloseDate},
+            probability = #{probability},
+            owner_employee_id = #{ownerEmployeeId},
+            status = #{status},
+            description = #{description},
+            updated_by = #{actorId},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE opportunity_id = #{opportunityId}
+          AND version = #{version}
+    </update>
+</mapper>

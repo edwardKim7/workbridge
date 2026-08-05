@@ -1,0 +1,18 @@
+name: workbridge_mobile
+description: WorkBridge 승인 업무용 Flutter 앱
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.5.0
+  provider: ^6.1.5
+  flutter_secure_storage: ^9.2.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
