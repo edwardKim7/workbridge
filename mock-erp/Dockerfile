@@ -9,7 +9,7 @@ RUN mvn -B -ntp -pl mock-erp -am dependency:go-offline
 COPY mock-erp/src ./mock-erp/src
 RUN mvn -B -ntp -pl mock-erp -am clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
 RUN groupadd --system --gid 10001 workbridge \
     && useradd --system --uid 10001 --gid workbridge --no-create-home --shell /usr/sbin/nologin workbridge
